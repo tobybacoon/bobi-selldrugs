@@ -117,7 +117,7 @@ local function takeBackDrugs (theEntity, drugCount, drugName, drugLabel)
     lib.notify({
         id='took_back',
         title='Took back '..drugCount.. 'x '..drugLabel,
-        position='top',
+        position='top-right',
     })
     TriggerServerEvent('bobi-selldrugs:server:RetrieveDrugs', drugName, drugCount)
     removeTargetEntity(theEntity)
@@ -127,28 +127,55 @@ local function takeBackDrugs (theEntity, drugCount, drugName, drugLabel)
 end
 
 local function successfulSell(entity, drugName, drugCount)
+    -- Define the prop models you want to attach
+    local playerPropModel = `prop_money_bag_01` -- Replace with the appropriate prop model hash for the player
+    local npcPropModel = `prop_drug_package_01` -- Replace with the appropriate prop model hash for the NPC
+
+    -- Request the models and wait until they're loaded
+    RequestModel(playerPropModel)
+    while not HasModelLoaded(playerPropModel) do
+        Wait(1)
+    end
+
+    RequestModel(npcPropModel)
+    while not HasModelLoaded(npcPropModel) do
+        Wait(1)
+    end
+
+    -- Create the prop and attach it to the player's hand
+    local playerPed = PlayerPedId()
+    local playerCoords = GetEntityCoords(playerPed)
+    local playerProp = CreateObject(playerPropModel, playerCoords.x, playerCoords.y, playerCoords.z, true, true, true)
+    AttachEntityToEntity(playerProp, playerPed, GetPedBoneIndex(playerPed, 60309), 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, false, true, 2, true)
+
+    -- Create the prop and attach it to the NPC's hand
+    local npcCoords = GetEntityCoords(entity)
+    local npcProp = CreateObject(npcPropModel, npcCoords.x, npcCoords.y, npcCoords.z, true, true, true)
+    AttachEntityToEntity(npcProp, entity, GetPedBoneIndex(entity, 60309), 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, false, true, 2, true)
+
     removeTargetEntity(entity)
     table.insert(usedEntities, entity)
     ClearPedTasks(entity)
-    TaskTurnPedToFaceEntity(entity, PlayerPedId(), -1)
-    TaskLookAtEntity(entity, PlayerPedId(), -1, 2048, 3)
+    TaskTurnPedToFaceEntity(entity, playerPed, -1)
+    TaskLookAtEntity(entity, playerPed, -1, 2048, 3)
     Wait(1000)
     ClearPedTasksImmediately(entity)
-    local moveto = GetEntityCoords(PlayerPedId())
-    TaskGoStraightToCoord(ped, moveto.x, moveto.y, moveto.z, 15.0, -1, GetEntityHeading(PlayerPedId()) - 180.0, 0.0)
+    local moveto = GetEntityCoords(playerPed)
+    TaskGoStraightToCoord(entity, moveto.x, moveto.y, moveto.z, 15.0, -1, GetEntityHeading(playerPed) - 180.0, 0.0)
     Wait(1900)
-    FreezeEntityPosition(PlayerPedId(), true)
-    ClearPedTasks(PlayerPedId())
-    TaskStartScenarioInPlace(PlayerPedId(), 'PROP_HUMAN_BUM_BIN', 0, true)
-    TaskStartScenarioInPlace(entity, "WORLD_HUMAN_STAND_IMPATIENT_UPRIGHT", 0, false)
+    FreezeEntityPosition(playerPed, true)
+    ClearPedTasks(playerPed)
+    TaskStartScenarioInPlace(playerPed, 'givetake1_a', 0, true)
+    TaskStartScenarioInPlace(entity, "givetake1_a", 0, false)
     Wait(5000)
+
     local success = lib.callback.await('bobi-selldrugs:server:RemoveDrugs', false, drugName, drugCount)
     if not success then
         -- player trying to do something fishy
         lib.notify({
             id='fishy_selling_drugs',
             title='Nice try, your actions were reported to the administrators',
-            position='top',
+            position='top-right',
         })  -- Add your reporting stuff here to actually report
     else
         lib.notify({
@@ -156,18 +183,52 @@ local function successfulSell(entity, drugName, drugCount)
             title='You sold some '..drugName..'!',
             icon='check',
             iconColor='#00FF00',
-            position='top',
+            position='top-right',
         })
         TriggerServerEvent('bobi-selldrugs:server:PayMoneyForDrugs', drugName, drugCount)
     end
+
+    -- Clean up: detach and delete the props
+    DetachEntity(playerProp, true, true)
+    DeleteObject(playerProp)
+    DetachEntity(npcProp, true, true)
+    DeleteObject(npcProp)
+
     SetPedKeepTask(entity, false)
     SetEntityAsNoLongerNeeded(entity)
     ClearPedTasks(entity)
-    ClearPedTasks(PlayerPedId())
-    FreezeEntityPosition(PlayerPedId(), false)
+    ClearPedTasks(playerPed)
+    FreezeEntityPosition(playerPed, false)
 end
 
 local function robbedOnSell(entity, drugName, drugCount)
+
+        -- Define the prop models you want to attach
+        local playerPropModel = `prop_money_bag_01` -- Replace with the appropriate prop model hash for the player
+        local npcPropModel = `prop_drug_package_01` -- Replace with the appropriate prop model hash for the NPC
+    
+        -- Request the models and wait until they're loaded
+        RequestModel(playerPropModel)
+        while not HasModelLoaded(playerPropModel) do
+            Wait(1)
+        end
+    
+        RequestModel(npcPropModel)
+        while not HasModelLoaded(npcPropModel) do
+            Wait(1)
+        end
+    
+        -- Create the prop and attach it to the player's hand
+        local playerPed = PlayerPedId()
+        local playerCoords = GetEntityCoords(playerPed)
+        local playerProp = CreateObject(playerPropModel, playerCoords.x, playerCoords.y, playerCoords.z, true, true, true)
+        AttachEntityToEntity(playerProp, playerPed, GetPedBoneIndex(playerPed, 60309), 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, false, true, 2, true)
+    
+        -- Create the prop and attach it to the NPC's hand
+        local npcCoords = GetEntityCoords(entity)
+        local npcProp = CreateObject(npcPropModel, npcCoords.x, npcCoords.y, npcCoords.z, true, true, true)
+        AttachEntityToEntity(npcProp, entity, GetPedBoneIndex(entity, 60309), 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, false, false, false, true, 2, true)
+
     ClearPedTasks(entity)
     TaskTurnPedToFaceEntity(entity, PlayerPedId(), -1)
     TaskLookAtEntity(entity, PlayerPedId(), -1, 2048, 3)
@@ -178,8 +239,8 @@ local function robbedOnSell(entity, drugName, drugCount)
     Wait(1900)
     FreezeEntityPosition(PlayerPedId(), true)
     ClearPedTasks(PlayerPedId())
-    TaskStartScenarioInPlace(PlayerPedId(), 'PROP_HUMAN_BUM_BIN', 0, true)
-    TaskStartScenarioInPlace(entity, "WORLD_HUMAN_STAND_IMPATIENT_UPRIGHT", 0, false)
+    TaskStartScenarioInPlace(PlayerPedId(), 'givetake1_a', 0, true)
+    TaskStartScenarioInPlace(entity, "givetake1_a", 0, false)
     removeTargetEntity(entity)
     Wait(5000)
     ClearPedTasksImmediately(entity)
@@ -191,7 +252,7 @@ local function robbedOnSell(entity, drugName, drugCount)
         lib.notify({
             id='fishy_selling_drugs',
             title='Nice try, your actions were reported to the administrators',
-            position='top',
+            position='top-right',
         })
     else
         lib.notify({
@@ -199,7 +260,7 @@ local function robbedOnSell(entity, drugName, drugCount)
             title='HEY! This fucker didn\'t pay for the '..drugLabel..'!',
             icon='warning',
             iconColor='#EBE134',
-            position='top',
+            position='top-right',
         })
         removeTargetEntity(entity)
         table.insert(robbedByEntities, entity)
@@ -218,6 +279,12 @@ local function robbedOnSell(entity, drugName, drugCount)
             }}
         )
     end
+    -- Clean up: detach and delete the props
+    DetachEntity(playerProp, true, true)
+    DeleteObject(playerProp)
+    DetachEntity(npcProp, true, true)
+    DeleteObject(npcProp)
+    
     TaskSmartFleeCoord(entity, moveto.x, moveto.y, moveto.z, 1000.5, 60000, true, true)
     SetEntityAsNoLongerNeeded(entity)
     ClearPedTasks(PlayerPedId())
@@ -236,10 +303,10 @@ local function aggroOnSell(entity)
     Wait(1900)
     lib.notify({
         id='aggro',
-        title='Oh shit, this idiot got really angry at you!',
+        title='Oh shit, this idiot got really angry at me!',
         icon='warning',
         iconColor='#EBE134',
-        position='top',
+        position='top-right',
     })
     SetPedCombatAttributes(entity, 5, true)
     SetPedCombatAttributes(entity, 46, true)
@@ -257,7 +324,7 @@ local function denyOnSell(entity)
         id='denied',
         title='I guess they don\'t like having fun..',
         icon='question',
-        position='top',
+        position='top-right',
     })
     TaskPlayAnim(PlayerPedId(), "gestures@f@standing@casual", "gesture_shrug_hard", 2.0, 2.0, 1000, 16, 0, 0, 0)
     ClearPedTasks(entity)
@@ -268,7 +335,7 @@ local function attemptSellDrugs (entity, drugName, drugCount)
         lib.notify({
             id='already_selling',
             title='You are busy with a client already!',
-            position='top',
+            position='top-right',
             icon='ban',
             iconColor='#C53030'
         })
@@ -357,7 +424,7 @@ local function startSelling()
         lib.notify({
             id='no_drugs',
             title='No drugs to sell!',
-            position='top',
+            position='top-right',
             icon='ban',
             iconColor='#C53030'
         })
